@@ -1,22 +1,30 @@
 VERSION 5.00
 Begin VB.Form ls_monitor 
    Caption         =   "ls_monitor"
-   ClientHeight    =   3930
+   ClientHeight    =   4140
    ClientLeft      =   6090
    ClientTop       =   4380
    ClientWidth     =   7185
    ForeColor       =   &H000000FF&
    Icon            =   "ls_monitor.frx":0000
    LinkTopic       =   "Form1"
-   ScaleHeight     =   3930
+   ScaleHeight     =   4140
    ScaleWidth      =   7185
    StartUpPosition =   3  '窗口缺省
+   Begin VB.CommandButton debug_code 
+      Caption         =   "code"
+      Height          =   375
+      Left            =   5400
+      TabIndex        =   16
+      Top             =   120
+      Width           =   615
+   End
    Begin VB.CommandButton r_pc_btn 
       Caption         =   "r_pc"
       Height          =   255
       Left            =   2760
       TabIndex        =   15
-      Top             =   3600
+      Top             =   3840
       Width           =   495
    End
    Begin VB.CommandButton freeze_btn 
@@ -49,7 +57,7 @@ Begin VB.Form ls_monitor
       Left            =   120
       Locked          =   -1  'True
       TabIndex        =   11
-      Top             =   3600
+      Top             =   3840
       Width           =   2415
    End
    Begin VB.CheckBox monitor_arg 
@@ -58,7 +66,7 @@ Begin VB.Form ls_monitor
       Index           =   3
       Left            =   4680
       TabIndex        =   10
-      Top             =   3600
+      Top             =   3840
       Value           =   1  'Checked
       Width           =   1215
    End
@@ -68,7 +76,7 @@ Begin VB.Form ls_monitor
       Index           =   2
       Left            =   3840
       TabIndex        =   9
-      Top             =   3600
+      Top             =   3840
       Width           =   735
    End
    Begin VB.CheckBox monitor_arg 
@@ -108,13 +116,13 @@ Begin VB.Form ls_monitor
    Begin VB.TextBox log 
       BackColor       =   &H80000001&
       ForeColor       =   &H0080FF80&
-      Height          =   2535
+      Height          =   3135
       Left            =   120
       MultiLine       =   -1  'True
       ScrollBars      =   2  'Vertical
       TabIndex        =   4
       Text            =   "ls_monitor.frx":1272
-      Top             =   960
+      Top             =   720
       Width           =   6975
    End
    Begin VB.CommandButton exit 
@@ -122,7 +130,7 @@ Begin VB.Form ls_monitor
       Height          =   255
       Left            =   6120
       TabIndex        =   3
-      Top             =   3600
+      Top             =   3840
       Width           =   975
    End
    Begin VB.CommandButton opendir 
@@ -130,7 +138,7 @@ Begin VB.Form ls_monitor
       Height          =   255
       Left            =   5400
       TabIndex        =   2
-      Top             =   600
+      Top             =   480
       Width           =   735
    End
    Begin VB.CommandButton clear 
@@ -140,7 +148,7 @@ Begin VB.Form ls_monitor
       Left            =   6240
       MaskColor       =   &H0000FFFF&
       TabIndex        =   1
-      Top             =   600
+      Top             =   480
       Width           =   615
    End
    Begin VB.TextBox logfilebox 
@@ -149,7 +157,7 @@ Begin VB.Form ls_monitor
       Left            =   120
       TabIndex        =   0
       Text            =   "logfile: "
-      Top             =   600
+      Top             =   480
       Width           =   5175
    End
 End
@@ -166,13 +174,17 @@ Private Sub form_init()
     monitor_st.text = "monitor is stop xxxxxx"
 End Sub
 
+Private Sub debug_code_Click()
+    pic_code_win.Show
+End Sub
+
 Private Sub debug_test_Click()
     a_debug_test log
 End Sub
 
 Private Sub Form_Activate()
     setsystime
-    Me.Caption = Me.Caption & " -- " & Now & "[release 1.1]"
+    Me.Caption = Me.Caption & " -- " & Now & "[release 1.1a]"
     '------- Auto login -------
     delay 12
     If monitor_arg(3).Value = 1 Then
@@ -186,7 +198,7 @@ End Sub
 
 Private Sub Form_Load()
     'Me.Move 600, Screen.Height - Me.Height
-    ls_monitor.Move 7000, 3500
+    ls_monitor.Move 2350, 5250
     public_init
     reg_dll
     login_init
@@ -201,7 +213,7 @@ End Sub
 
 Private Sub freeze_btn_Click()
     debug_check = True
-    hwin = dm.FindWindow("", "炉石传说")
+    hwin = dm.findwindow("", "炉石传说")
     Call checkfreezewin(hwin, "炉石传说", log)
     Call checkfreezewin2(hwin, "炉石传说", log)
 End Sub

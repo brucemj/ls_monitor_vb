@@ -67,6 +67,7 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
         Exit Do
     End If
     ' ---------------------- monitor_start run -------------------
+    show_monitorlog log, "  ", False
     show_monitorlog log, "monitor_start run, looptime=" & looptime & " --- " & Now & "-----------------", Not debug_check
 
     If CheckExeIsRun("ls_login.exe") = 0 Then '没有登录进程 ls_login.exe
