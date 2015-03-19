@@ -1,8 +1,9 @@
 Attribute VB_Name = "monitor"
 'Public Const zw_loginexe = "D:\game\st_battle.cmd"
 'userinfo = hb_Fgetplayuser("play", "81", "0")
-Public monitor_file, user_tag, ls_tag, hb_tag, unixtime_tag, tag_tick_time, hb_tick, hb_new
+Public monitor_file, user_tag, ls_tag, hb_tag, unixtime_tag, tag_tick_time, hb_tick, hb_new, hb_time2, bakgold, hsgold
 Public login_exe As String, st_keys, st_keys_length, debug_check As Boolean, monitor_running As Boolean
+Public os_tick
 
 Public Sub a_debug_test(log)
     st_file = "D:\wg\hb_new\Hearthbuddy 0.3.828.115\Settings\" & user_tag & "\Stats.json"
@@ -29,13 +30,22 @@ Public Sub monitor_init(log)
     debug_check = False
     st_keys = Array("Wins", "Losses", "Concedes", "Quests", "Newtime", "Ticktime", "DWins", "DLosses")
     st_keys_length = UBound(st_keys) - LBound(st_keys) + 1
+    bakgold = 0
+    hsgold = 0
+    hb_time2 = 0
+    os_tick = 0
 End Sub
 Public Sub monitor_start(log, looptime As Integer, ls_monitor)
     Dim m_delay_seonde As Integer
+    sql_tick log, "new"
     monitor_running = True
     ls_monitor.monitor_st.text = "monitor is running vvvvvv"
     Dim T() As String
     Do
+        Currentdate = Year(Now) & "-" & Month(Now) & "-" & Day(Now)
+        logdir = "D:\wg\log\" & Currentdate
+        monitor_file = logdir & "\" & "game_monitor.txt"
+    
         m_delay_seonde = looptime
     T() = Split(log.text, vbCrLf)
     If UBound(T) > 100 Then
@@ -47,7 +57,6 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
         debug_check = True
         If monitor_windows(log) = 1 Then ' 0 为窗口正常，1为窗口异常
             show_monitorlog log, "    monitor_windows 窗口异常 !!! [windows调试模式,不会启动登录] ", Not debug_check
-            game_restart
         Else
             show_monitorlog log, "    monitor_windows 窗口正常 vvv [windows调试模式,不会启动登录] ", Not debug_check
         End If
@@ -69,7 +78,10 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
     ' ---------------------- monitor_start run -------------------
     show_monitorlog log, "  ", False
     show_monitorlog log, "monitor_start run, looptime=" & looptime & " --- " & Now & "-----------------", Not debug_check
+    
 
+    
+    
     If CheckExeIsRun("ls_login.exe") = 0 Then '没有登录进程 ls_login.exe
         If monitor_readTag(log) Then '没有登录进程,tag_file存在，检测 ls+hb 是否运行正常
             show_monitorlog log, "  没有登录进程,tag_file存在,检测 ls+hb 是否运行正常" & Now, Not debug_check
@@ -77,19 +89,21 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
                 If monitor_windows(log) = 1 Then ' 0 为窗口正常，1为窗口异常
                     show_monitorlog log, "    monitor_windows 窗口异常 !!! ,重启ls_login.exe; " & "tag_tick_time=" & tag_tick_time, Not debug_check
                     killall log
-                    game_restart
+                    game_restart log
                 Else
                     show_monitorlog log, "    monitor_windows 窗口正常" & "tag_tick_time=" & tag_tick_time & "; " & Now, Not debug_check ' 一切窗口正常
                     If monitor_quests(log) = 0 Then ' 0 is questing , 1 is need change user
+                        sql_setgold log
                         show_monitorlog log, "    monitor_quests 任务没完成 !!!  ", Not debug_check
                         If monitor_hbtime(log) = 0 Then ' 0 is ok , 1 is timeout
                             show_monitorlog log, "    monitor_hbtime 正常   ", Not debug_check
                         Else
                             show_monitorlog log, "    monitor_hbtime 异常 !!!,重启ls_login.exe; ", Not debug_check
                             killall log
-                            game_restart
+                            game_restart log
                         End If
                     Else
+                        sql_setgold log
                         show_monitorlog log, "    monitor_quests 任务已完成 vvv  ", Not debug_check
                         change_user log
                     End If
@@ -99,7 +113,7 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
         Else '没有登录进程，并且 tag_file 不存在
             show_monitorlog log, "  没有登录进程，并且 tag_file 不存在，则启动 ls_login.exe " & Now, Not debug_check
             killall log
-            game_restart
+            game_restart log
         End If
     Else '存在登录进程 ls_login.exe
         show_monitorlog log, "  存在登录进程 ls_login.exe ------ " & Now, Not debug_check
@@ -107,7 +121,7 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
             If tag_tick_time > 240 Then ' 登录程序已经运行了 240 秒,超时了
                 show_monitorlog log, "    登录程序已经运行了 240 秒,超时了,重启 ls_login.exe" & Now, Not debug_check
                 killall log
-                game_restart
+                game_restart log
             Else
                 Dim w_t As Integer, i As Integer
                 w_t = 240 - tag_tick_time
@@ -123,11 +137,12 @@ Public Sub monitor_start(log, looptime As Integer, ls_monitor)
         Else ' 存在登录进程，但tag_file文件不存在
             show_monitorlog log, "    存在登录进程 ls_login.exe，但tag_file文件不存在，请找原因" & Now, Not debug_check
             killall log
-            game_restart
+            game_restart log
         End If
     End If
     
     delay m_delay_seonde
+    sql_tick log, "tick"
     Loop Until ls_monitor.monitor_arg(2).Value
     show_monitorlog log, "--------   monitor stop -------- " & Now, Not debug_check
     monitor_running = False
@@ -163,7 +178,7 @@ End Function
 Public Function monitor_windows(log) ' 0 is OK , 1 is restart
     oopwin = dm.FindWindow("", "Oops!")
     If oopwin <> 0 Then
-        show_monitorlog log, "      游戏窗口Oops!异常 !!!!!!!!!!!!!!!", Not debug_check
+        show_monitorlog log, "      游戏窗口Oops!异常 !!!!!!!!!!!!!!!  " & Now, Not debug_check
         oopwin = dm.FindWindow("", "Oops!")
         delay 2
         dm.SetWindowState oopwin, 13
@@ -173,8 +188,9 @@ Public Function monitor_windows(log) ' 0 is OK , 1 is restart
     
     hb_license = dm.FindWindow("#32770", "Error")
     If hb_license <> 0 Then
-        show_monitorlog log, "      hb_license 窗口异常，重启计算机!!!!!!!!!!!!!!!", Not debug_check
+        show_monitorlog log, "      hb_license 窗口异常，重启pc !!!!!!!!!!!!!!!", Not debug_check
         delay 4
+        get_screen log, user_tag, "hb_license1"
         pc_restart
         monitor_windows = 1
         Exit Function
@@ -239,6 +255,7 @@ Public Function monitor_quests(log) ' 0 is questing , 1 is need change user
     quests = json.ParseJson(st_file_txt, "Quests")
     newtime = json.ParseJson(st_file_txt, "Newtime")
     ticktime = json.ParseJson(st_file_txt, "Ticktime")
+    hsgold = json.ParseJson(st_file_txt, "Gold")
         
     'For i = 0 To st_keys_length - 1
     '    k = st_keys(i)
@@ -248,21 +265,25 @@ Public Function monitor_quests(log) ' 0 is questing , 1 is need change user
     unix_Ntime = DateDiff("s", "01/01/1970 08:00:00", Now())
     hb_tick = unix_Ntime - ticktime
     hb_new = unix_Ntime - newtime
-    show_monitorlog log, "  累计场次Wins/Losses:" & wins & "/" & losses & ";" & "当日场次DWins/DLosses:" & _
-        dwins & "/" & dlosses & ",q=" & quests & ",hb_t=" & hb_tick & ",hb_n=" & hb_new, Not debug_check
+    zhanji_str = "[" & dwins & "/" & dlosses & ",q=" & quests & ",G=" & hsgold & "]"
+    show_monitorlog log, "  累计Wins/Losses:" & wins & "/" & losses & ";" & "当日DWins/DLosses:" & _
+        zhanji_str & " ,hb_t=" & hb_tick & ",hb_n=" & hb_new, Not debug_check
     
-    
+    If hb_tick > 3000 Then
+        monitor_quests = 0
+        Exit Function
+    End If
     games = dwins + dlosses
     If dwins >= 1 And quests = 0 Then
-        show_monitorlog log, "    换号条件满足 1+0，重新开始 vvvvvv", Not debug_check
+        show_monitorlog log, "    换号条件满足 1+0，重新开始 vvvvvv= " & user_tag & "," & zhanji_str & Now, Not debug_check
         monitor_quests = 1
         Exit Function
     ElseIf dwins >= 9 Then
-        show_monitorlog log, "    换号条件满足 9 dwins，重新开始 vvvvvv", Not debug_check
+        show_monitorlog log, "    换号条件满足 9 dwins，重新开始 vvvvvv= " & user_tag & "," & zhanji_str & Now, Not debug_check
         monitor_quests = 1
         Exit Function
     ElseIf games >= 30 Then
-        show_monitorlog log, "    换号条件满足 30 games，重新开始 vvvvvv", Not debug_check
+        show_monitorlog log, "    换号条件满足 30 games，重新开始 vvvvvv= " & user_tag & "," & zhanji_str & Now, Not debug_check
         monitor_quests = 1
         Exit Function
     End If
@@ -273,7 +294,19 @@ End Function
 Public Function monitor_hbtime(log) ' 0 is ok , 1 is timeout
     If Not debug_check Then
         If hb_tick > 200 Or hb_new > 1500 Then
-            monitor_hbtime = 1
+            If hb_time2 = 3 Then
+                monitor_hbtime = 1
+                hb_time2 = 0
+                Exit Function
+            Else
+                hb_time2 = hb_time2 + 1
+                show_monitorlog log, "    hb_time异常，多观察一次 00000 ", Not debug_check
+                monitor_hbtime = 0
+                Exit Function
+            End If
+        Else
+            hb_time2 = 0
+            monitor_hbtime = 0
             Exit Function
         End If
     Else
@@ -284,19 +317,36 @@ End Function
 Public Function change_user(log)
     If Not debug_check Then
         sql_getplayuser "play", "82", "0", log ' 换号
+        hsgold = 0
+        bakgold = 0
         killall log
-        game_restart
+        game_restart log
     Else
         show_monitorlog log, "    调试模式 ,user_tag=" & user_tag, Not debug_check
     End If
 End Function
 
+Public Function change_user_hand(log)
+        hsgold = 0
+        bakgold = 0
+        userinfot = sql_getplayuser("play", 81, 0, log)
+        usert = userinfot(0)
+        sql_getplayuser "play", "84", "0", log ' 手动换号
+        show_monitorlog log, "    手动换号 ,user=" & usert, True
+        killall log
+        game_restart log
+End Function
+
 Public Function game_stop()
 End Function
 
-Public Function game_restart()
+Public Function game_restart(log)
+    hb_time2 = 0
     If Not debug_check Then
         delay 3
+        run_cmd "taskkill /f /im ls_login.exe": Sleep 200
+        run_cmd "taskkill /f /im ls_login.exe": Sleep 200
+        show_monitorlog log, "------------- game_restart  ------------", Not debug_check
         run_cmd "start " & login_exe
     End If
 End Function
@@ -323,7 +373,7 @@ Public Function checkfreezewin2(hwin, title, log) ' 0 is OK , 1 is restart
     Loop
 End Function
 
- Public Function checkfreezewin(hwin, title, log) ' 0 is OK , 1 is restart
+Public Function checkfreezewin(hwin, title, log) ' 0 is OK , 1 is restart
     'Dim x1, y1, x2, y2
     'dm.SetWindowState hwin, 1
     i = 0
@@ -346,6 +396,32 @@ End Function
 End Function
  
  
+Public Function sql_setgold(log) ' 0 is OK , 1 is restart
+    If hsgold <> bakgold And hsgold > 0 Then
+        bakgold = hsgold
+        show_monitorlog log, "    sql_setgold 金币数量为: " & hsgold, True
+        'Call sql_setgolduser(u_name, 82, glod, log)
+        ' result = objHTTP.Send("u_name=" & u_name & "&act=" & "setgold" & "&st=" & st & "&glod=" & glod)
+        u_name = user_tag & "@163.com"
+        Call sql_setgolduser(u_name, 82, hsgold, log)
+    End If
+End Function
+
+Public Function sql_tick(log, atc) ' 0 is OK , 1 is restart
+    Set objHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    'objHTTP.Open "POST", "http://172.21.12.59/hb/test.php", False
+    objHTTP.Open "POST", "http://172.21.12.59/hb/ht.php", False
+    objHTTP.SetRequestHeader "Content-Type", "application/x-www-form-urlencoded"
  
- 
+    result = objHTTP.Send("act=" & atc)
+    GetDataFromURL = objHTTP.ResponseText
+    
+    os_tick = GetDataFromURL
+    If os_tick = 1 Then
+        showlog log, "sql_tick: p_st = " & os_tick & ",the pc will reboot"
+        delay 3
+        run_cmd "shutdown -r -f -t 2"
+    End If
+End Function
+
 

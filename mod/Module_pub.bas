@@ -1,5 +1,5 @@
 Attribute VB_Name = "public"
-Public dm, logdir
+Public dm, logdir, pc_tag
 Public hwin
 Public Const title_login = "战网登录"
 Public Const title_protocol = "战网协议"
@@ -10,13 +10,15 @@ Public Const title_game = "炉石传说"
 Public Const title_hbcnf = "Configuration Window"
 Public Const title_hbupdate = "Hearthbuddy Update Available"
 'Public Const title_hb = "HearthbuddyBETA (0.3.799.88) [0.3.799.88]"
-Public Const title_hb = "Hearthbuddy (0.3.857.132) [0.3.857.132]"
+'Public Const title_hb = "Hearthbuddy (0.3.857.132) [0.3.857.132]"
+Public Const title_hb = "Hearthbuddy (0.3.859.133) [0.3.859.133]"
 'Const class_hb = HwndWrapper
 Public Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long) '阻塞延迟，单位：毫秒
 Public Declare Function IsHungAppWindow Lib "user32.dll" (ByVal hWnd As Long) As Long
 Public Sub public_init()
     Currentdate = Year(Now) & "-" & Month(Now) & "-" & Day(Now)
     logdir = "D:\wg\log\" & Currentdate
+    pc_tag = 0
 End Sub
 Public Function delay(PauseTime As Integer) '非阻塞延迟，单位 秒,但是关闭窗口可能会阻塞
     Dim WshShell
@@ -78,72 +80,14 @@ Public Function run_cmd(cmd)
     Set WshShell = CreateObject("wscript.Shell")
     WshShell.Run "cmd.exe /c " & cmd, 0
 End Function
-Public Sub monitor_task(log, looptime As Integer)
-    showlog log, "monitor_task is running ------------------------  " & Now
-    If gamerun = 0 Then
-        showlog log, "游戏还没启动，额外延时 30 秒" & Now
-        delay 30
-        showlog log, Now
-    End If
-    
-    windows_st = game_windows(log)
-    If windows_st = 1 Then
-        showlog log, "windows_st=1，game_restart  " & Now
-        game_restart
-    End If
-    If windows_st = 2 Then
-        showlog log, "windows_st=2，game_stop  " & Now
-        game_stop
-    End If
-    
-    showlog log, looptime & " 秒后进行下次monitor"
-    delay looptime
-End Sub
-Public Function game_windows(log)
-    oopwin = dm.FindWindow("", "Oops!")
-    If oopwin <> 0 Then
-        showlog log, "游戏窗口Oops!异常 !!!!!!!!!!!!!!!"
-        oopwin = dm.FindWindow("", "Oops!")
-        delay 2: dm.SetWindowState oopwin, 13
-        game_windows = 1: Exit Function
-    End If
-    hb_license = dm.FindWindow("#32770", "Error")
-    If hb_license <> 0 Then
-        showlog log, "hb_license 窗口异常，重启计算机!!!!!!!!!!!!!!!"
-        delay 2
-        pc_restart
-        game_windows = 2: Exit Function
-    End If
-    If gamerun = 1 And hbrun = 1 Then
-        gamewin = dm.FindWindow("", "炉石传说")
-        'checkfreezewin gamewin
-        hbwin = dm.FindWindow("", title_hb)
-        If hbwin = 0 Then
-            showlog log, "hb窗口异常，重新运行!!!!!!!!!!!!!!!"
-            game_windows = 1: Exit Function
-        End If
-    End If
-    
-    'gamefrozen = dm.FindWindow("", "炉石传说 (未响应)")
-    'If gamefrozen > 0 Then
-    '    checkfreezewin gamefrozen
-    'End If
-    
-    game_windows = 0 ' 0 is OK , 1 is restart , 2 is stop
-End Function
-Public Function game_stop()
-    
-End Function
-Public Function game_restart()
-End Function
-Public Function pc_restart()
-    run_cmd "shurdown -r -f -t 3"
-End Function
-Public Function hbrun()
-End Function
-Public Function gamerun()
-End Function
 
+Public Function pc_restart()
+    If pc_tag >= 3 Then
+        run_cmd "shutdown -r -f -t 3"
+    Else
+        pc_tag = pc_tag + 1
+    End If
+End Function
 
 
 Public Function hb_LeftClick3()
@@ -172,6 +116,7 @@ Public Function sql_getplayuser(act, st, glod, log)
  
     result = objHTTP.Send("act=" & act & "&st=" & st & "&glod=" & glod & "&localip=" & getIp)
     GetDataFromURL = objHTTP.ResponseText
+    showlog log, "sql_getplayuser: GetDataFromURL = " & GetDataFromURL
     strarr = Split(GetDataFromURL, ",", 2)
     If st = 122 Then
         showlog log, "sql_getplayuser:" & "战网账号安全解锁失败,122" & " 用户名: " & strarr(0) & "   ; 密码: " & strarr(1)
@@ -180,6 +125,34 @@ Public Function sql_getplayuser(act, st, glod, log)
     End If
     
     sql_getplayuser = strarr
+End Function
+
+Public Function sql_getgolduser(act, st, glod, log)
+    Set objHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    'objHTTP.Open "POST", "http://172.21.12.59/hb/test.php", False
+    objHTTP.Open "POST", "http://172.21.12.59/hb/gold.php", False
+    objHTTP.SetRequestHeader "Content-Type", "application/x-www-form-urlencoded"
+    
+    result = objHTTP.Send("act=" & act & "&st=" & st & "&glod=" & glod & "&localip=" & getIp)
+    GetDataFromURL = objHTTP.ResponseText
+    strarr = Split(GetDataFromURL, ",", 2)
+    
+    showlog log, "金币账户 用户名: " & strarr(0) & "   ； 密码: " & strarr(1)
+    sql_getgolduser = strarr
+End Function
+
+Public Function sql_setgolduser(u_name, st, glod, log)
+    Set objHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    'objHTTP.Open "POST", "http://172.21.12.59/hb/test.php", False
+    objHTTP.Open "POST", "http://172.21.12.59/hb/gold.php", False
+    objHTTP.SetRequestHeader "Content-Type", "application/x-www-form-urlencoded"
+    
+    result = objHTTP.Send("u_name=" & u_name & "&act=" & "setgold" & "&st=" & st & "&glod=" & glod)
+    'GetDataFromURL = objHTTP.ResponseText
+    'strarr = Split(GetDataFromURL, ",", 2)
+    
+    'showlog log, "金币账户 用户名: " & strarr(0) & "   ； 密码: " & strarr(1)
+    'sql_getgolduser = strarr
 End Function
 
 Public Function killall(log)
@@ -195,18 +168,25 @@ Public Function killall(log)
     oopwin = dm.FindWindow("", "Oops!"): Sleep 200: dm.SetWindowState oopwin, 0
     Sleep 200: dm.SetWindowState oopwin, 13
     'win = dm.FindWindow("", title_hkj) : Delay ss * 10 : dm.SetWindowState win, 0'关闭 HKJ
+    run_cmd "taskkill /f /im dirjfjp.exe"
     win = dm.FindWindow("", title_hbcnf): Sleep 200: dm.SetWindowState win, 13  '关闭 hbcnf
     win = dm.FindWindow("", title_hbupdate): Sleep 200: dm.SetWindowState win, 0  '关闭 hbupdate
     win = dm.FindWindow("", title_hb): Sleep 200: dm.SetWindowState win, 13  '关闭 hb
     win = dm.FindWindow("", "Hearthbuddy"): Sleep 200: dm.SetWindowState win, 13  '关闭 Hearthbuddy exception
-    run_cmd "taskkill /f /im ls_login.exe": Sleep 200
-    run_cmd "taskkill /f /im ls_login.exe": Sleep 200
+    
+    run_cmd "taskkill /f /im dirjfjp.exe": Sleep 200
+    run_cmd "taskkill /f /im dirjfjp.exe": Sleep 200
+    run_cmd "taskkill /f /im Hearthstone.exe": Sleep 200
+    run_cmd "taskkill /f /im Hearthstone.exe": Sleep 200
+
+    
     'Call CreateObject("WScript.Shell").run("D:\wg\flush.cmd") //刷新任务栏
     delay 2
     If dm.FindWindow("", title_hb) > 0 Then ' killall 失败，重启pc
         delay 5
         If dm.FindWindow("", title_hb) > 0 Then
             delay 5
+            showlog log, "killall 失败，重启pc ： " & Now
             pc_restart
         End If
     End If
@@ -232,3 +212,30 @@ Public Function CheckExeIsRun(exeName As String)
     Exit Function
 
 End Function
+
+Function getIp()
+    Set objWMIService = GetObject("winmgmts:")
+    Set colNicConfig = objWMIService.ExecQuery("SELECT * FROM " & _
+    "Win32_NetworkAdapterConfiguration WHERE IPEnabled = True")
+    For Each objNicConfig In colNicConfig
+        If Not IsNull(objNicConfig.IPAddress) Then
+            For Each strIPAddress In objNicConfig.IPAddress
+                getIp = strIPAddress
+                Exit Function
+            Next
+        End If
+    Next
+End Function
+
+Sub get_screen(log, uname_s, step)
+    pic_name = Split(uname_s, "@")
+    pic22 = Mid(pic_name(0), 1, 2)
+    pic_dir = "D:\wg\pic\" & pic22
+    Dim WshShell
+    Set WshShell = CreateObject("wscript.Shell")
+    WshShell.Run "cmd.exe /c md " + pic_dir, 0
+    pic_full = pic_dir & "\" & pic_name(0) & "_" & step & ".png"
+    showlog log, "png: " & pic_name(0) & "-" & pic_dir & "-" & pic_full
+    delay 2
+    dm.CapturePng 0, 0, 1024, 768, pic_full
+End Sub

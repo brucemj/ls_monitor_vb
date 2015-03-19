@@ -13,7 +13,16 @@ Begin VB.Form ls_game
    ScaleWidth      =   7185
    StartUpPosition =   3  '´°¿ÚÈ±Ê¡
    Begin VB.CheckBox login_arg 
-      Caption         =   "5ÃëºóµÇÂ½"
+      Caption         =   "g"
+      Height          =   180
+      Index           =   5
+      Left            =   720
+      TabIndex        =   43
+      Top             =   840
+      Width           =   375
+   End
+   Begin VB.CheckBox login_arg 
+      Caption         =   "10ÃëºóµÇÂ½"
       Height          =   300
       Index           =   4
       Left            =   5760
@@ -433,7 +442,7 @@ End Sub
 
 Private Sub Form_Activate()
     '------- Auto login -------
-    delay 5
+    delay 10
     If login_arg(4).Value = 1 Then
         'MsgBox "5"
         setsystime
@@ -457,6 +466,10 @@ Private Sub Form_Unload(Cancel As Integer)
 End Sub
 
 
+Private Sub log_Change()
+    log.SelStart = Len(log.text)
+End Sub
+
 Private Sub opendir_Click()
     run_cmd ("start " + logdir)
 End Sub
@@ -466,6 +479,7 @@ Private Sub clear_Click()
 End Sub
 
 Private Sub restart_Click()
+    log.text = log.text & vbCrLf
     setsystime
     intogame log, ls_game
 End Sub

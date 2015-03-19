@@ -11,6 +11,15 @@ Begin VB.Form ls_monitor
    ScaleHeight     =   4140
    ScaleWidth      =   7185
    StartUpPosition =   3  '窗口缺省
+   Begin VB.CommandButton change_user 
+      Caption         =   "c_u"
+      Height          =   255
+      Left            =   3240
+      TabIndex        =   17
+      ToolTipText     =   "手动换号，st=84"
+      Top             =   3840
+      Width           =   495
+   End
    Begin VB.CommandButton debug_code 
       Caption         =   "code"
       Height          =   375
@@ -22,7 +31,7 @@ Begin VB.Form ls_monitor
    Begin VB.CommandButton r_pc_btn 
       Caption         =   "r_pc"
       Height          =   255
-      Left            =   2760
+      Left            =   2640
       TabIndex        =   15
       Top             =   3840
       Width           =   495
@@ -174,17 +183,17 @@ Private Sub form_init()
     monitor_st.text = "monitor is stop xxxxxx"
 End Sub
 
+Private Sub change_user_Click()
+    change_user_hand log
+End Sub
+
 Private Sub debug_code_Click()
     pic_code_win.Show
 End Sub
 
-Private Sub debug_test_Click()
-    a_debug_test log
-End Sub
-
 Private Sub Form_Activate()
     setsystime
-    Me.Caption = Me.Caption & " -- " & Now & "[release 1.1a]"
+    Me.Caption = Me.Caption & " -- " & Now & "[release 1.1d]"
     '------- Auto login -------
     delay 12
     If monitor_arg(3).Value = 1 Then
@@ -213,7 +222,7 @@ End Sub
 
 Private Sub freeze_btn_Click()
     debug_check = True
-    hwin = dm.findwindow("", "炉石传说")
+    hwin = dm.FindWindow("", "炉石传说")
     Call checkfreezewin(hwin, "炉石传说", log)
     Call checkfreezewin2(hwin, "炉石传说", log)
 End Sub

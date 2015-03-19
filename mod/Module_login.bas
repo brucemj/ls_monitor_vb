@@ -8,12 +8,13 @@ Public Const g_resolution_h = 384
 Public Const g_hswindow_x = 0
 Public Const g_hswindow_y = 0
 'userinfo = hb_Fgetplayuser("play", "81", "0")
-Public uname, passwd, lsrun, hbrun, logfile, login_tagfile
+Public uname, passwd, lsrun, hbrun, logfile, login_tagfile, is_gold
 Public Sub login_init()
     logfile = logdir & "\" & "game_work.txt"
     login_tagfile = "D:\wg\log\" & "tag.txt"
     lsrun = 0
     hbrun = 0
+    is_gold = 0
 End Sub
 Public Sub login_0tag(ls, hb)
     UnixTime = DateDiff("s", "01/01/1970 08:00:00", Now())
@@ -23,11 +24,21 @@ Public Sub login_0tag(ls, hb)
 End Sub
 Function intogame(log, ls_game)
     showlog log, "TAG: hbrun=" & hbrun & " , lsrun=" & lsrun
-    userinfo = sql_getplayuser("play", 81, 0, log)
+    If ls_game.login_arg(5).Value = 1 Then ' 是否 找金币用户
+        showlog log, "开始 登录金币用户： ------------------------"
+        is_gold = 1
+        userinfo = sql_getgolduser("gold", 80, 0, log)
+    Else
+        is_gold = 0
+        userinfo = sql_getplayuser("play", 81, 0, log)
+    End If
+    
     'userinfo = Split("brucemj44@163.com,aaaa2222", ",", 2)
     uname = userinfo(0)
     passwd = userinfo(1)
-    login_0tag hbrun, lsrun
+    'uname = "mjflash111@163.com"
+    'passwd = "ffff8888"
+    login_0tag lsrun, hbrun
     
     If ls_game.login_arg(0).Value = 1 Then
         showlog log, "开始启动游戏： " & Now & " ------------------------"
@@ -156,7 +167,7 @@ Function login_3winds(log)  '
         Do
             delay 1: state = dm.SetWindowState(nickname, 1): delay 1
         Loop Until state  ' 等待激活 战网昵称创建 窗口
-        dm.MoveWindow nickname, g_hswindow_x, g_hswindow_y: delay ss * 60 ' 移动 战网昵称创建 窗口到 0，0
+        dm.MoveWindow nickname, g_hswindow_x, g_hswindow_y: delay 6 ' 移动 战网昵称创建 窗口到 0，0
         '//nicktime = BeginThread(count_to(30, "战网昵称 按键超时"))
         Do
             delay 1: dm.SetWindowState nickname, 1
@@ -188,18 +199,26 @@ Function login_3wsec(log) '//战网安全问题回答 窗口
     delay 1: winsec = dm.FindWindow("", "战网账号安全")
     If winsec <> 0 Then
         showlog log, "战网账号安全处理"
+        
         dm.SetWindowState winsec, 1
         dm.MoveWindow winsec, g_hswindow_x, g_hswindow_y: delay 1  '//移动 战网账号安全 窗口到 0，0
         dm.Moveto 81, 285: hb_LeftClick3: delay 1   '// 点击3次，获取安全问题焦点
-        dm.SetWindowState winsec, 1: input_str "thisiskk": delay 1
-        dm.Moveto 147, 332: hb_LeftClick3: delay 1   '// 点击3次，获取安全问题焦点
+        dm.SetWindowState winsec, 1: input_str "thisiskk"
+        get_screen log, uname, "0"
+        delay 3
+        dm.Moveto 147, 332: hb_LeftClick3: delay 2   '// 点击3次，获取安全问题焦点
+        get_screen log, uname, "1"
         i = 0
         Do
             i = i + 1
             delay 2: winsec2 = dm.FindWindow("", "战网账号安全")
             If i > 8 Then
+                get_screen log, uname, "2"
                 showlog log, "战网账号安全窗口超时，可能帐号被锁，st设置为 122 "
-                sql_getplayuser "play", "122", "0", log '战网账号安全解锁失败,122
+                If is_gold = 0 Then
+                    sql_getplayuser "play", "85", "0", log '战网账号安全解锁失败,122
+                End If
+                showlog log, "战网账号安全处理失败， 重启pc " & Now
                 delay 5
                 pc_restart
             End If
@@ -249,23 +268,22 @@ Function login_5hb(log)  'hb 窗口处理
     dm.MoveWindow lscs, 970, 680: delay 1  '// 游戏窗口调整
     dm.SetWindowState game_hwnd, 1: delay 4  '//最小化游戏
     
-    cdk = dm.FindWindow("", "Using VIP auth server")
-    
-    If cdk = 0 Then '// 如果没有 cdk 窗口，则打开
         showlog log, "cdk 窗口没开启，则打开"
-        cdkr = CreateObject("WScript.Shell").Run(hb_hkj): delay ss * 30
         Do
+            run_cmd "taskkill /f /im dirjfjp.exe"
             delay 2
+            run_cmd "taskkill /f /im dirjfjp.exe"
+            delay 2
+            cdkr = CreateObject("WScript.Shell").Run(hb_hkj)
+            delay 6
             cdk = dm.FindWindow("", "Using VIP auth server")
         Loop Until cdk
         
         showlog log, " cdk 窗口，打开: " & cdk
         dm.MoveWindow cdk, g_hswindow_x, g_hswindow_y: delay 2  ' cdk窗口调整
         dm.SetWindowState cdk, 1: dm.Moveto 109, 61: dm.LeftClick: delay 1: dm.LeftClick       ' cdk窗口点击
-        dm.MoveWindow hhh, 1010, -50: delay 1    ' cdk窗口调整
-    Else
-        showlog log, "cdk 窗口开启 -----"
-    End If
+        dm.MoveWindow cdk, 1010, -50: delay 1    ' cdk窗口调整
+
     
     
     showlog log, "准备开启hb -----"
@@ -303,8 +321,8 @@ Function login_5hb(log)  'hb 窗口处理
 End Function
 
 
-Sub login_5hb_set_profile(name, hwnd)
-    dm.MoveWindow hwnd, g_hswindow_x, g_hswindow_y: delay 2 '游戏窗口调整
+Sub login_5hb_set_profile(name, hWnd)
+    dm.MoveWindow hWnd, g_hswindow_x, g_hswindow_y: delay 2 '游戏窗口调整
     
     profile = Split(name, "@")
     dm.SetClipboard profile(0): delay 2  ' 用户名放置到系统剪切板
@@ -313,6 +331,9 @@ Sub login_5hb_set_profile(name, hwnd)
     dm.RightClick: delay 2
     'dm.Moveto 74,87 : hb_LeftClick3 : Delay ss * 5
     dm.KeyPress 80: delay 2  ' 右键，按P,复制
-    dm.SetWindowState hwnd, 1: delay 2: dm.KeyPress 13   '激活 hbcnf 窗口,并回车
+    dm.SetWindowState hWnd, 1: delay 2: dm.KeyPress 13   '激活 hbcnf 窗口,并回车
 End Sub
+
+
+
 
